@@ -1,0 +1,170 @@
+!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Standings Viewer</title>
+  <style>
+    :root {
+      --primary-color: #0066cc;
+      --primary-dark: #004a99;
+      --bg-color: #f4f6f8;
+      --card-bg: #ffffff;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 15px;
+      background: var(--bg-color);
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: var(--card-bg);
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.6em;
+      margin-bottom: 20px;
+      color: var(--primary-dark);
+    }
+    select {
+      width: 100%;
+      padding: 12px;
+      font-size: 1em;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background-color: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+      font-size: 0.9em;
+    }
+    th {
+      background-color: var(--primary-color);
+      color: white;
+      font-weight: 600;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    tr:hover {
+      background-color: rgba(0,102,204,0.05);
+    }
+    td {
+      border-bottom: 1px solid #ddd;
+    }
+
+    /* Mobile stacking for small phones */
+    @media (max-width: 480px) {
+      table, thead, tbody, th, td, tr {
+        display: block;
+        width: 100%;
+      }
+      thead tr {
+        display: none;
+      }
+      tr {
+        margin-bottom: 12px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      }
+      td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: none;
+        border-bottom: 1px solid #eee;
+      }
+      td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 12px;
+        width: 45%;
+        white-space: nowrap;
+        font-weight: 600;
+        color: #555;
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🏆 Tournament Standings</h1>
+    <select id="divisionSelect"></select>
+    <div id="tableContainer"></div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const container = document.getElementById('tableContainer');
+      const select = document.getElementById('divisionSelect');
+
+      function init() {
+        if (!google || !google.script || !google.script.run) {
+          // Retry after 200ms if not ready
+          setTimeout(init, 200);
+          return;
+        }
+
+        google.script.run
+          .withSuccessHandler(function(divisions) {
+            if (!divisions || divisions.length === 0) {
+              container.innerHTML = "<p>No divisions found.</p>";
+              return;
+            }
+            select.innerHTML = divisions.map(d => `<option value="${d}">${d}</option>`).join('');
+            select.addEventListener('change', loadStandings);
+            loadStandings();
+          })
+          .withFailureHandler(function(err) {
+            container.innerHTML = "<p>Error loading divisions: " + err.message + "</p>";
+          })
+          .getDivisions();
+      }
+
+      function loadStandings() {
+        const division = select.value;
+        container.innerHTML = "<p>Loading...</p>";
+        google.script.run
+          .withSuccessHandler(function(data) {
+            if (!data || !data.rows || data.rows.length === 0) {
+              container.innerHTML = "<p>No data found for " + division + ".</p>";
+              return;
+            }
+            let html = '<table><thead><tr>';
+            data.headers.forEach(header => html += `<th>${header}</th>`);
+            html += '</tr></thead><tbody>';
+            data.rows.forEach(row => {
+              html += '<tr>';
+              row.forEach((cell, i) => {
+                html += `<td data-label="${data.headers[i]}">${cell}</td>`;
+              });
+              html += '</tr>';
+            });
+            html += '</tbody></table>';
+            container.innerHTML = html;
+          })
+          .withFailureHandler(function(err) {
+            container.innerHTML = "<p>Error loading standings: " + err.message + "</p>";
+          })
+          .getStandingsByDivision(division);
+      }
+
+      init();
+    });
+  </script>
+</body>
+</html>
